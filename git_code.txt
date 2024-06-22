@@ -1,1 +1,39 @@
-i want to devlop the code with business logic with pyspark
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, count, max
+
+# Assuming SparkSession is already created
+spark = SparkSession.builder.appName("UpdateQueryLogic").getOrCreate()
+
+# Example DataFrame (replace with your actual DataFrame)
+data = [
+    (1, 'user1', '2023-06-15 10:30:00', True),
+    (2, 'user2', '2023-06-20 14:45:00', False),
+    (3, 'user3', '2023-06-19 08:00:00', True),
+    # Add more rows as needed
+]
+columns = ['user_id', 'username', 'last_login_timestamp', 'pb_online_status']
+df = spark.createDataFrame(data, columns)
+
+# Example logic to compute num_accounts and last_contacted
+# Assume num_accounts is the count of accounts per user_id
+num_accounts_df = df.groupBy('user_id').agg(count('*').alias('num_accounts'))
+
+# Assume last_contacted is derived from another DataFrame or log
+# Here we assume another DataFrame df_contacts with columns user_id and last_contacted_timestamp
+# Adjust this part based on how you retrieve last_contacted information
+df_contacts = spark.createDataFrame([
+    (1, '2023-06-19 15:30:00'),
+    (2, '2023-06-21 09:00:00'),
+    (3, '2023-06-18 11:20:00'),
+], ['user_id', 'last_contacted_timestamp'])
+
+last_contacted_df = df.join(df_contacts, ['user_id'], 'left').select('user_id', 'last_contacted_timestamp')
+
+# Join num_accounts and last_contacted back to the original DataFrame
+updated_df = df.join(num_accounts_df, 'user_id', 'left') \
+              .join(last_contacted_df, 'user_id', 'left') \
+              .withColumnRenamed('count', 'num_accounts') \
+              .withColumnRenamed('last_contacted_timestamp', 'last_contacted')
+
+# Now updated_df contains all original columns plus num_accounts and last_contacted
+updated_df.show()
